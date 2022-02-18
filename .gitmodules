@@ -1,0 +1,3 @@
+[submodule "pywtk"]
+	path = pywtk
+	url = git@github.com:NREL/pywtk.git
