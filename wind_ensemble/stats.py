@@ -18,7 +18,7 @@ def hyperbolic(mu, alpha, beta, delta):
 
 def fit_hyperbolic(mean, percentiles, kurtosis,
                    percentile_weight=100, kurtosis_weight=1, x0=(2, 0, 1),
-                   tol=1e-8):
+                   tol=1e-8, maxiter=1000):
     """
     Return a hyperbolic distribution fit to the data.
 
@@ -29,6 +29,7 @@ def fit_hyperbolic(mean, percentiles, kurtosis,
     :param float percentile_weight: Weighting for percentile optimization.
     :param float kurtosis_weight: Weighting for kurtosis optimization.
     :param tuple x0: Starting guess for optimization.
+    :param int maxiter: Maximum iteration for scipy solver
     :return: tuple scipy frozen distribution and optimal parameters
     """
     def objective(x):
@@ -45,7 +46,8 @@ def fit_hyperbolic(mean, percentiles, kurtosis,
         score += np.abs(kurtosis - kurtosis_dist) * kurtosis_weight
         return score
     cons = [{'type': 'ineq', 'fun': lambda x: x[0] - np.abs(x[1])}]
-    result = optimize.minimize(objective, x0, constraints=cons, tol=tol)
+    result = optimize.minimize(objective, x0, constraints=cons, tol=tol,
+                               options={'maxiter': maxiter})
     if not result.success:
         raise RuntimeError(
             f"Could not successfully fit distribution: {result.message}")
