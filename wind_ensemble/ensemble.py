@@ -4,9 +4,11 @@ Create ensemble forecast.
 import numpy as np
 import pandas as pd
 from pywtk.site_lookup import get_3tiersites_from_wkt
-from pywtk.wtk_api import get_nc_data, WIND_FCST_DIR, WIND_MET_NC_DIR
+from pywtk.wtk_api import get_nc_data, WIND_FCST_DIR
+from pywtk import site_lookup
 
 from . import stats
+
 
 class Ensemble:
     """Creation of ensemble forecasts."""
@@ -76,12 +78,17 @@ class Ensemble:
         site_ensembles = {}
         for site, distance in self._close_sites:
             site_forecasts[site] = get_nc_data(
-                # TODO: Modify forecast attributes to have the horizon columns.
                 site, start, end, self.forecast_attributes, utc=utc,
                 nc_dir=WIND_FCST_DIR
             )
+            # Normalize by site capacity to get p.u.
+            site_forecasts[site] /= _capacity(site)
             site_ensembles[site] = self.create_ensemble(
                 site_forecasts[site], n)
+        # Return mean forecasts across sites
+        # TODO: We should do inverse distance weighting.
+        totals = pd.concat(list(site_ensembles.values()))
+        return totals.groupby(totals.index).mean()
 
     @property
     def forecast_attributes(self):
@@ -113,6 +120,11 @@ class Ensemble:
             (close.iloc[1]['Site_id'], close.iloc[1]['Distance']),
             (close.iloc[2]['Site_id'], close.iloc[2]['Distance'])
         )
+
+
+def _capacity(site):
+    """Return capacity metadata for a site."""
+    return site_lookup.sites.loc[site, 'capacity']
 
 
 def _to_forecast_str(horizon):
