@@ -1,9 +1,12 @@
 """
 Create ensemble forecast.
 """
+import numpy as np
+import pandas as pd
 from pywtk.site_lookup import get_3tiersites_from_wkt
 from pywtk.wtk_api import get_nc_data, WIND_FCST_DIR, WIND_MET_NC_DIR
 
+from . import stats
 
 class Ensemble:
     """Creation of ensemble forecasts."""
@@ -44,15 +47,27 @@ class Ensemble:
         :param int n: Number of data points to generate.
         :param float kurtosis: Kurtosis for p.u. power prediction error
         """
-        rows = []
         # For each timestep, we fit a hyperbolic distribution to the
         # _p90 10th percentile, mean, and _p10 90th percentile to estimate the
         # errors, then generate n power predictions at that point.
-        ten_percentile_col = [c for c in forecast.columns if '_p90' in c]
-        ninety_percentile_col = [c for c in forecast.columns if '_p10' in c]
-        mean_col = [c for c in forecast.columns]
+        ten_percentile_col = [c for c in forecast.columns if '_p90' in c][0]
+        ninety_percentile_col = [c for c in forecast.columns if '_p10' in c][0]
+        mean_col = set(forecast.columns) - \
+            set((ten_percentile_col, ninety_percentile_col))
+        if len(mean_col) > 1:
+            raise ValueError("Ambiguous mean column")
+        mean_col = list(mean_col)[0]
+        forecasts = []
         for i, row in forecast.iterrows():
-
+            percentiles = {0.1: row[ten_percentile_col],
+                           0.9: row[ninety_percentile_col]}
+            error_dist = stats.fit_hyperbolic(
+                row[mean_col], percentiles=percentiles, kurtosis=kurtosis
+            )[0]
+            forecasts.append(error_dist.rvs(size=n))
+        forecasts = np.array(forecasts)
+        forecasts = np.around(np.clip(forecasts, 0, 1), 4)
+        return pd.DataFrame(forecasts, index=forecast.index)
 
     def forecast_ensemble(self, start, end, n=100, utc=True):
         """Return an ensemble of *n* forecasts of p.u. power generated using
