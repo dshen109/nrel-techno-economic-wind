@@ -29,7 +29,7 @@ def fit_hyperbolic(mean, percentiles, kurtosis,
     :param float percentile_weight: Weighting for percentile optimization.
     :param float kurtosis_weight: Weighting for kurtosis optimization.
     :param tuple x0: Starting guess for optimization.
-    :return: scipy frozen distribution
+    :return: tuple scipy frozen distribution and optimal parameters
     """
     def objective(x):
         """Function to minimize"""
@@ -50,4 +50,4 @@ def fit_hyperbolic(mean, percentiles, kurtosis,
         raise RuntimeError(
             f"Could not successfully fit distribution: {result.message}")
     alpha, beta, delta = result.x
-    return hyperbolic(mean, alpha, beta, delta)
+    return hyperbolic(mean, alpha, beta, delta), result.x

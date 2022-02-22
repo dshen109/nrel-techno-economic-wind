@@ -4,11 +4,16 @@ Create ensemble forecast.
 from pywtk.site_lookup import get_3tiersites_from_wkt
 from pywtk.wtk_api import get_nc_data, WIND_FCST_DIR, WIND_MET_NC_DIR
 
+
 class Ensemble:
     """Creation of ensemble forecasts."""
     _allowable_horizons = (1, 4, 6, 24)
+    # 1 and 24 hour values estimated from NREL wind power error report; others
+    # are arbitrary
+    _default_error_kurtosis = {1: 18, 4: 14, 6: 10, 24: 2.5}
 
-    def __init__(self, coordinates, horizon=24, isclose_distance=10):
+    def __init__(self, coordinates, horizon=24, isclose_distance=10,
+                 error_kurtosis=None):
         """
         :param tuple coordinates: lat / long of forecast location (decimal deg)
         :param int_or_list horizon: Forecast horizon(s), hours.
@@ -26,10 +31,28 @@ class Ensemble:
         self.latitude, self.longitude = coordinates
         self.horizon = horizon
         self.isclose_distance = isclose_distance
+        if error_kurtosis is None:
+            self.error_kurtosis = self._default_error_kurtosis.copy()
+        else:
+            self.error_kurtosis = error_kurtosis
 
-    def create_ensemble(self, forecast, n):
-        """Create *n* forecasts from the base pywtk forecast."""
-        pass
+    def create_ensemble(self, forecast, n, kurtosis):
+        """Create *n* p.u. forecasts from the base pywtk forecast.
+
+        :param DataFrame forecast: pywtk site forecast; should be normalized to
+            p.u. power output.
+        :param int n: Number of data points to generate.
+        :param float kurtosis: Kurtosis for p.u. power prediction error
+        """
+        rows = []
+        # For each timestep, we fit a hyperbolic distribution to the
+        # _p90 10th percentile, mean, and _p10 90th percentile to estimate the
+        # errors, then generate n power predictions at that point.
+        ten_percentile_col = [c for c in forecast.columns if '_p90' in c]
+        ninety_percentile_col = [c for c in forecast.columns if '_p10' in c]
+        mean_col = [c for c in forecast.columns]
+        for i, row in forecast.iterrows():
+
 
     def forecast_ensemble(self, start, end, n=100, utc=True):
         """Return an ensemble of *n* forecasts of p.u. power generated using
@@ -38,6 +61,7 @@ class Ensemble:
         site_ensembles = {}
         for site, distance in self._close_sites:
             site_forecasts[site] = get_nc_data(
+                # TODO: Modify forecast attributes to have the horizon columns.
                 site, start, end, self.forecast_attributes, utc=utc,
                 nc_dir=WIND_FCST_DIR
             )
@@ -57,7 +81,6 @@ class Ensemble:
                 ]
             )
         return attrs
-
 
     @property
     def point(self):
