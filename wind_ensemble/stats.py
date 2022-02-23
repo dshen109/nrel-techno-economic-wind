@@ -4,7 +4,7 @@ from scipy import stats
 from scipy import optimize
 
 
-def hyperbolic(mu, alpha, beta, delta):
+def hyperbolic(loc, alpha, beta, delta):
     """Return scipy distribution for a hyperbolic distribution.
 
     Parameters follow Barndorff (1978) (lambda=1).
@@ -12,13 +12,13 @@ def hyperbolic(mu, alpha, beta, delta):
     a = alpha * delta
     b = beta * delta
     scale = delta
-    loc = mu
+    loc = loc
     return stats.genhyperbolic(p=1, a=a, b=b, loc=loc, scale=scale)
 
 
 def fit_hyperbolic(mean, percentiles, kurtosis,
-                   percentile_weight=100, kurtosis_weight=1, x0=(2, 0, 1),
-                   tol=1e-8, maxiter=1000):
+                   mean_weight=100, percentile_weight=100, kurtosis_weight=1,
+                   x0=(2, 0, 1, 0), tol=1e-8, maxiter=1000):
     """
     Return a hyperbolic distribution fit to the data.
 
@@ -34,24 +34,30 @@ def fit_hyperbolic(mean, percentiles, kurtosis,
     """
     def objective(x):
         """Function to minimize"""
-        alpha, beta, delta = x
-        distribution = hyperbolic(mean, alpha, beta, delta)
+        alpha, beta, delta, loc = x
+        distribution = hyperbolic(loc, alpha, beta, delta)
         score = 0
+        percentile_scores = []
         for percentile, value in percentiles.items():
-            score += (
-                np.abs(distribution.cdf(value) - percentile) *
+            percentile_scores.append(
+                100 * np.abs(distribution.cdf(value) - percentile) ** 2 *
                 percentile_weight
             )
-        kurtosis_dist = distribution.stats(moments='k')
-        # Todo: penalize kurtosis by pct relative and penalize it hyperbolically
-        score += np.abs(kurtosis - kurtosis_dist) * kurtosis_weight
+        # Take the maximum of the score so we don't just fit one side of the
+        # distribution
+        score += max(percentile_scores)
+        mean_dist, kurtosis_dist = distribution.stats(moments='mk')
+        score += (
+            (1 + np.abs(kurtosis - kurtosis_dist) / kurtosis) ** 2
+            * kurtosis_weight)
+        score += (1 + np.abs(mean - mean_dist)) ** 2 * mean_weight
         return score
-    cons = [{'type': 'ineq', 'fun': lambda x: x[0] - np.abs(x[1]) - 0.00001},
-            {'type': 'ineq', 'fun': lambda x: x[2] - 0.00001}]
+    cons = [{'type': 'ineq', 'fun': lambda x: x[0] - np.abs(x[1]) - 0.000001},
+            {'type': 'ineq', 'fun': lambda x: x[2] - 0.000001}]
     result = optimize.minimize(objective, x0, constraints=cons, tol=tol,
                                options={'maxiter': maxiter})
     if not result.success:
         raise RuntimeError(
             f"Could not successfully fit distribution: {result.message}")
-    alpha, beta, delta = result.x
-    return hyperbolic(mean, alpha, beta, delta), result.x
+    alpha, beta, delta, loc = result.x
+    return hyperbolic(loc, alpha, beta, delta), result.x

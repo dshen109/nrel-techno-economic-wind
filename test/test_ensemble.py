@@ -33,7 +33,7 @@ class TestEnsemble(TestCase):
 
 
 class TestEnsembleRealData(TestCase):
-    coordinates = 39.740223, -105.168885
+    coordinates = 39.740223, -105.168885  # NREL
     horizon = (1, 24)
 
     def setUp(self):
