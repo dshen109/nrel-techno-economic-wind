@@ -30,3 +30,19 @@ class TestEnsemble(TestCase):
         for i in range(len(self.pywtk_forecast)):
             self.assertLessEqual(above.iloc[i], n / 10)
             self.assertLessEqual(below.iloc[i], n / 10)
+
+
+class TestEnsembleRealData(TestCase):
+    coordinates = 39.740223, -105.168885
+    horizon = (1, 24)
+
+    def setUp(self):
+        self.ensemble = ensemble.Ensemble(
+            self.coordinates, horizon=self.horizon)
+
+    def test_forecast_ensemble(self):
+        forecasts = self.ensemble.forecast_ensemble(
+            pd.to_datetime('2013-01-01 00:00', utc=True),
+            pd.to_datetime('2013-01-01 23:59', utc=True), n=100,
+            utc=True)
+        self.assertEqual(sorted(forecasts.keys()), [1, 24])
