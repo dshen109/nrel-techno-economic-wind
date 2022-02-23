@@ -43,9 +43,11 @@ def fit_hyperbolic(mean, percentiles, kurtosis,
                 percentile_weight
             )
         kurtosis_dist = distribution.stats(moments='k')
+        # Todo: penalize kurtosis by pct relative and penalize it hyperbolically
         score += np.abs(kurtosis - kurtosis_dist) * kurtosis_weight
         return score
-    cons = [{'type': 'ineq', 'fun': lambda x: x[0] - np.abs(x[1])}]
+    cons = [{'type': 'ineq', 'fun': lambda x: x[0] - np.abs(x[1]) - 0.00001},
+            {'type': 'ineq', 'fun': lambda x: x[2] - 0.00001}]
     result = optimize.minimize(objective, x0, constraints=cons, tol=tol,
                                options={'maxiter': maxiter})
     if not result.success:
