@@ -75,20 +75,29 @@ class Ensemble:
         """Return an ensemble of *n* forecasts of p.u. power generated using
         the error bounds."""
         site_forecasts = {}
-        site_ensembles = {}
-        for site, distance in self._close_sites:
+        horizon_ensembles = {}
+        for site, distance in self.close_sites:
             site_forecasts[site] = get_nc_data(
                 site, start, end, self.forecast_attributes, utc=utc,
                 nc_dir=WIND_FCST_DIR
             )
             # Normalize by site capacity to get p.u.
             site_forecasts[site] /= _capacity(site)
-            site_ensembles[site] = self.create_ensemble(
-                site_forecasts[site], n)
+            for horizon in self.horizon:
+                horizon_ensembles[horizon] = []
+                horizon_cols = [c for c in site_forecasts[site].columns
+                                if _to_forecast_str(horizon) in c]
+
+                horizon_ensembles[horizon].append(self.create_ensemble(
+                    site_forecasts[site][horizon_cols], n,
+                    kurtosis=self.error_kurtosis[horizon]))
         # Return mean forecasts across sites
         # TODO: We should do inverse distance weighting.
-        totals = pd.concat(list(site_ensembles.values()))
-        return totals.groupby(totals.index).mean()
+        result = {}
+        for horizon in self.horizon:
+            frame = pd.concat(horizon_ensembles[horizon])
+            result[horizon] = frame.groupby(frame.index).mean()
+        return result
 
     @property
     def forecast_attributes(self):
@@ -107,18 +116,18 @@ class Ensemble:
     @property
     def point(self):
         """WKT representation of coordinates (NREL convention is long first)"""
-        return f"POINT({self.long} {self.lat})"
+        return f"POINT({self.longitude} {self.latitude})"
 
     @property
     def close_sites(self):
         """Tuple of top 1 or 3 sites that are close and their distances."""
         close = get_3tiersites_from_wkt(self.point)
-        if close.iloc[0]['Distance'] < self.isclose_distance:
-            return ((close.iloc[0]['Site_id'], close.iloc[0]['Distance']),)
+        if close.iloc[0]['distance'] < self.isclose_distance:
+            return ((close.iloc[0]['gid'], close.iloc[0]['distance']),)
         return (
-            (close.iloc[0]['Site_id'], close.iloc[0]['Distance']),
-            (close.iloc[1]['Site_id'], close.iloc[1]['Distance']),
-            (close.iloc[2]['Site_id'], close.iloc[2]['Distance'])
+            (close.iloc[0]['gid'], close.iloc[0]['distance']),
+            (close.iloc[1]['gid'], close.iloc[1]['distance']),
+            (close.iloc[2]['gid'], close.iloc[2]['distance'])
         )
 
 
