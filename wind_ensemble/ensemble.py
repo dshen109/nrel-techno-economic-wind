@@ -59,13 +59,14 @@ class Ensemble:
         if len(mean_col) > 1:
             raise ValueError("Ambiguous mean column")
         mean_col = list(mean_col)[0]
-        forecasts = []
+        x0 = (2.7, 1, 0)
         for i, row in forecast.iterrows():
             percentiles = {0.1: row[ten_percentile_col],
                            0.9: row[ninety_percentile_col]}
-            error_dist = stats.fit_hyperbolic(
-                row[mean_col], percentiles=percentiles, kurtosis=kurtosis
-            )[0]
+            error_dist, x0 = stats.fit_hyperbolic(
+                row[mean_col], percentiles=percentiles, kurtosis=kurtosis,
+                x0=x0
+            )
             forecasts.append(error_dist.rvs(size=n))
         forecasts = np.array(forecasts)
         forecasts = np.around(np.clip(forecasts, 0, 1), 4)
