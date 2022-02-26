@@ -41,8 +41,9 @@ class TestEnsembleRealData(TestCase):
             self.coordinates, horizon=self.horizon)
 
     def test_forecast_ensemble(self):
+        # This test runs very slowly -- should try and make it faster...
         forecasts = self.ensemble.forecast_ensemble(
-            pd.to_datetime('2013-01-01 00:00', utc=True),
-            pd.to_datetime('2013-01-01 23:59', utc=True), n=100,
+            pd.to_datetime('2013-01-02 00:00', utc=True),
+            pd.to_datetime('2013-01-02 23:59', utc=True), n=100,
             utc=True)
         self.assertEqual(sorted(forecasts.keys()), [1, 24])
