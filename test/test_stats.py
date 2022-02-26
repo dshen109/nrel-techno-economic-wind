@@ -1,5 +1,8 @@
+from math import isclose
+
 from wind_ensemble import stats
 
+from numpy.testing import assert_allclose
 from unittest import TestCase
 
 
@@ -21,20 +24,22 @@ class TestHyperbolic(TestCase):
         hyperbolic, _ = stats.fit_hyperbolic(
             mean, percentiles, kurtosis, percentile_weight=100,
             mean_weight=1, kurtosis_weight=1)
+        self.assertAlmostEqual(hyperbolic.stats('m'), mean, places=2)
         self.assertAlmostEqual(hyperbolic.cdf(-1), 0.1, places=2)
         self.assertAlmostEqual(hyperbolic.cdf(4), 0.9, places=2)
         self.assertAlmostEqual(hyperbolic.stats('k'), kurtosis, places=2)
 
     def test_another_fit(self):
         mean = 0.010283576
-        percentiles = {0.1: 0.0, 0.9: 0.1240082}
+        percentiles = {0.1: 0, 0.9: 0.1240082}
         kurtosis = 18
-        x0 = (3, 0, 1, 0)
-        hyperbolic, _ = stats.fit_hyperbolic(
-            mean, percentiles, kurtosis, percentile_weight=100, x0=x0)
-        self.assertAlmostEqual(hyperbolic.cdf(0), 0.1, places=2)
-        self.assertAlmostEqual(hyperbolic.cdf(0.12401), 0.9, places=2)
-        self.assertAlmostEqual(hyperbolic.stats('k'), kurtosis, places=2)
+        hyperbolic, x, results = stats.fit_hyperbolic(
+            mean, percentiles, kurtosis, x0=None,
+            method='SLSQP', maxiter=1e5)
+        self.assertAlmostEqual(hyperbolic.stats('m'), mean, places=2)
+        assert_allclose(hyperbolic.cdf(0), 0.1, rtol=0.2)
+        assert_allclose(hyperbolic.cdf(0.12401), 0.9, rtol=0.1)
+        # assert_allclose(hyperbolic.stats('k'), kurtosis, rtol=0.1)
 
         # mean
         # 0.010283576
@@ -44,3 +49,14 @@ class TestHyperbolic(TestCase):
         # 261.0398055858605
         # beta
         # 14.900258500382094
+
+    def test_yet_another_fit(self):
+        mean = 0.317773
+        percentiles = {0.1: 0.2287, 0.9: 0.4257}
+        kurtosis = 18
+        hyperbolic, x, results = stats.fit_hyperbolic(
+            mean, percentiles, kurtosis, x0=None,
+            method='SLSQP', maxiter=1e5)
+        self.assertAlmostEqual(hyperbolic.stats('m'), mean, places=2)
+        assert_allclose(hyperbolic.cdf(0.2287), 0.1, rtol=0.2)
+        assert_allclose(hyperbolic.cdf(0.4257), 0.9, rtol=0.1)
